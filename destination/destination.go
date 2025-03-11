@@ -28,6 +28,7 @@ type Destination struct {
 	config DestinationConfig
 }
 
+//nolint:revive // TODO.
 type DestinationConfig struct {
 	sdk.DefaultDestinationMiddleware
 	// Config includes parameters that are the same in the source and destination.

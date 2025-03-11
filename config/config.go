@@ -18,7 +18,10 @@ package config
 // destination. If you don't need shared parameters you can entirely remove this
 // file.
 type Config struct {
-	// GlobalConfigParam is named global_config_param_name and needs to be
-	// provided by the user.
-	GlobalConfigParam string `json:"global_config_param_name" validate:"required"`
+	// Token is used to authenticate API access.
+	Token string `json:"token" validate:"required"`
+	// Url is the remote influxdb host for api calls.
+	URL string `json:"url" validate:"required"`
+	// Org is an organization name or ID.
+	Org string `json:"org" validate:"required"`
 }

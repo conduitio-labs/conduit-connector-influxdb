@@ -29,6 +29,7 @@ type Source struct {
 	lastPositionRead opencdc.Position //nolint:unused // this is just an example
 }
 
+//nolint:revive // TODO.
 type SourceConfig struct {
 	sdk.DefaultSourceMiddleware
 	// Config includes parameters that are the same in the source and destination.
