@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package influxdb_test
+package source_test
 
 import (
 	"context"
 	"testing"
 
-	influxdb "github.com/conduitio-labs/conduit-connector-influxdb"
+	"github.com/conduitio-labs/conduit-connector-influxdb/source"
 	"github.com/matryer/is"
 )
 
 func TestTeardownSource_NoOpen(t *testing.T) {
 	is := is.New(t)
-	con := influxdb.NewSource()
+	con := source.NewSource()
 	err := con.Teardown(context.Background())
 	is.NoErr(err)
 }

@@ -19,6 +19,8 @@ package influxdb
 import (
 	_ "embed"
 
+	"github.com/conduitio-labs/conduit-connector-influxdb/destination"
+	"github.com/conduitio-labs/conduit-connector-influxdb/source"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
@@ -29,6 +31,6 @@ var version = "(devel)"
 
 var Connector = sdk.Connector{
 	NewSpecification: sdk.YAMLSpecification(specs, version),
-	NewSource:        NewSource,
-	NewDestination:   NewDestination,
+	NewSource:        source.NewSource,
+	NewDestination:   destination.NewDestination,
 }

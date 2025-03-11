@@ -12,19 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package influxdb_test
+package config
 
-import (
-	"context"
-	"testing"
-
-	influxdb "github.com/conduitio-labs/conduit-connector-influxdb"
-	"github.com/matryer/is"
-)
-
-func TestTeardown_NoOpen(t *testing.T) {
-	is := is.New(t)
-	con := influxdb.NewDestination()
-	err := con.Teardown(context.Background())
-	is.NoErr(err)
+// Config contains shared config parameters, common to the source and
+// destination. If you don't need shared parameters you can entirely remove this
+// file.
+type Config struct {
+	// GlobalConfigParam is named global_config_param_name and needs to be
+	// provided by the user.
+	GlobalConfigParam string `json:"global_config_param_name" validate:"required"`
 }

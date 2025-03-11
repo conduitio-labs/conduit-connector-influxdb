@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package influxdb
+package source
 
 import (
 	"context"
 
+	"github.com/conduitio-labs/conduit-connector-influxdb/config"
 	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -31,7 +32,7 @@ type Source struct {
 type SourceConfig struct {
 	sdk.DefaultSourceMiddleware
 	// Config includes parameters that are the same in the source and destination.
-	Config
+	config.Config
 	// SourceConfigParam must be provided by the user.
 	SourceConfigParam string `json:"sourceConfigParam" validate:"required"`
 }

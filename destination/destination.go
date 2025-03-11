@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package influxdb
+package destination
 
 import (
 	"context"
 
+	"github.com/conduitio-labs/conduit-connector-influxdb/config"
 	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -30,7 +31,7 @@ type Destination struct {
 type DestinationConfig struct {
 	sdk.DefaultDestinationMiddleware
 	// Config includes parameters that are the same in the source and destination.
-	Config
+	config.Config
 	// DestinationConfigParam must be either yes or no (defaults to yes).
 	DestinationConfigParam string `validate:"inclusion=yes|no" default:"yes"`
 }
