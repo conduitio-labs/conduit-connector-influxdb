@@ -1,78 +1,67 @@
-# Conduit Connector Template
+# Conduit Connector for <!-- readmegen:name --> <resource> <!-- /readmegen:name -->
 
-This is a template project for building [Conduit](https://conduit.io) connectors
-in Go. It makes it possible to start working on a Conduit connector in a matter
-of seconds.
+[Conduit](https://conduit.io) connector for <!-- readmegen:name --> <resource> <!-- /readmegen:name -->.
 
-## Quick start
+<!-- readmegen:description -->
+<!-- /readmegen:description -->
 
-1. Click [_Use this template_](https://github.com/new?template_name=conduit-connector-template&template_owner=ConduitIO) and clone your new repository.
-2. Initialize the repository using [`setup.sh`](https://github.com/ConduitIO/conduit-connector-template/blob/main/setup.sh) and commit your changes.
-   ```sh
-   ./setup.sh github.com/myusername/conduit-connector-myconnector
-   git add -A
-   git commit -m "initialize repository"
-   ```
-3. Fill out the `summary` and `description` in `connector.yaml`. Note that the
-   `source` and `destination` sections in this file shouldn't be changed, as
-   they are automatically generated from the source and destination configuration
-   structs.
-4. Set up [automatic Dependabot PR merges](#automatically-merging-dependabot-prs).
+## Source
 
-With that, you're all set up and ready to start working on your connector! As a
-next step, we recommend that you check out
-the [Conduit Connector SDK](https://github.com/ConduitIO/conduit-connector-sdk).
+A source connector pulls data from InfluxDB and pushes it to
+downstream resources via Conduit.
 
-## What's included?
+### Configuration
 
-* Skeleton code for the connector's configuration, source and destination.
-* Example unit tests.
-* A [Makefile](/Makefile) with commonly used targets.
-* A [script](/scripts/bump_version.sh) that bumps the connector version.
-* A [script](/scripts/tag.sh) that tags the connector (which kicks of a
-  release).
-* A [GitHub workflow](/.github/workflows/test.yml) to build the code and run the tests.
-* A [GitHub workflow](/.github/workflows/lint.yml) to run a pre-configured set of linters.
-* A [GitHub workflow](/.github/workflows/release.yml) which automatically
-  creates a release when a tag is pushed.
-* A [Dependabot setup](/.github/dependabot.yml) which checks your dependencies
-  for available updates
-  and [merges minor version upgrades](/.github/workflows/dependabot-auto-merge-go.yml)
-  automatically.
-* [Issue](/.github/ISSUE_TEMPLATE) and [PR templates](/.github/pull_request_template.md).
-* A [README template](/README_TEMPLATE.md).
+<!-- readmegen:source.parameters.yaml -->
+<!-- /readmegen:source.parameters.yaml -->
 
-## Automatically merging Dependabot PRs
+## Destination
 
-> [!NOTE]
-> This applies only to public connector repositories, as branch protection rules are not enforced in private repositories.
+A destination connector pushes data from upstream resources to InfluxDB via Conduit.
 
-The template makes it simple to keep your connector up-to-date using automatic
-merging of [Dependabot](https://github.com/dependabot) PRs. To make use of this
-setup, you need to adjust some repository settings.
+### Configuration
 
-1. Navigate to Settings -> General and allow auto-merge of PRs.
+<!-- readmegen:destination.parameters.yaml -->
+<!-- /readmegen:destination.parameters.yaml -->
 
-   ![Allow auto-merge](https://github.com/ConduitIO/conduit-connector-template/assets/8320753/695b15f0-85b4-49cb-966d-649e9bf03455)
+## Development
 
-2. Navigate to Settings -> Branches and add a branch protection rule.
+- To install the required tools, run `make install-tools`.
+- To generate code (mocks, re-generate `connector.yaml`, update the README,
+  etc.), run `make generate`.
 
-   ![Add branch protection rule](https://github.com/ConduitIO/conduit-connector-template/assets/8320753/9f5a07bc-d141-42b9-9918-e8d9cc648482)
+## How to build?
 
-3. Create a rule for branch `main` that requires status checks `test` and
-   `golangci-lint`.
+Run `make build` to build the connector.
 
-   ![Status checks](https://github.com/ConduitIO/conduit-connector-template/assets/8320753/96219185-c329-432a-8623-9b4462015f32)
+## Testing
 
-## Recommended repository settings
+Run `make test` to run all the unit tests. Run `make test-integration` to run
+the integration tests.
 
-- Allow squash merging only.
-- Always suggest updating pull request branches.
-- Automatically delete head branches.
-- Branch protection rules on branch `main` (only in public repositories):
-  - Require a pull request before merging.
-  - Require approvals.
-  - Require status checks `build` and `golangci-lint`.
-  - Require branches to be up to date before merging.
-  - Require conversation resolution before merging.
-  - Do not allow bypassing the above settings.
+The Docker compose file at `test/docker-compose.yml` can be used to run the
+required resource locally.
+
+## How to release?
+
+The release is done in two steps:
+
+- Bump the version in [connector.yaml](/connector.yaml). This can be done
+  with [bump_version.sh](/scripts/bump_version.sh) script, e.g.
+  `scripts/bump_version.sh 2.3.4` (`2.3.4` is the new version and needs to be a
+  valid semantic version). This will also automatically create a PR for the
+  change.
+- Tag the connector, which will kick off a release. This can be done
+  with [tag.sh](/scripts/tag.sh).
+
+## Known Issues & Limitations
+
+- Known issue A
+- Limitation A
+
+## Planned work
+
+- [ ] Item A
+- [ ] Item B
+
+![scarf pixel](https://static.scarf.sh/a.png?x-pxid=)
