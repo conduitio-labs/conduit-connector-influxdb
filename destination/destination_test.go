@@ -43,6 +43,11 @@ func TestDestination_Open(t *testing.T) {
 	}
 
 	con := destination.NewDestination()
+	defer func() {
+		err := con.Teardown(ctx)
+		is.NoErr(err)
+	}()
+
 	err := sdk.Util.ParseConfig(ctx, cfg, con.Config(), influxdb.Connector.NewSpecification().DestinationParams)
 	is.NoErr(err)
 
@@ -62,6 +67,11 @@ func TestDestination_OpenWithInvalidMeasurement(t *testing.T) {
 	}
 
 	con := destination.NewDestination()
+	defer func() {
+		err := con.Teardown(ctx)
+		is.NoErr(err)
+	}()
+
 	err := sdk.Util.ParseConfig(ctx, cfg, con.Config(), influxdb.Connector.NewSpecification().DestinationParams)
 	is.NoErr(err)
 
