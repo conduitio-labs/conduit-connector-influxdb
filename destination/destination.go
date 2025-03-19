@@ -16,34 +16,34 @@ package destination
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
 
-	"github.com/conduitio-labs/conduit-connector-influxdb/config"
 	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
+
+const prefixTag = "tag."
+
+type measurementFn func(opencdc.Record) (string, error)
 
 type Destination struct {
 	sdk.UnimplementedDestination
 
-	config DestinationConfig
-}
-
-//nolint:revive // TODO.
-type DestinationConfig struct {
-	sdk.DefaultDestinationMiddleware
-	// Config includes parameters that are the same in the source and destination.
-	config.Config
-	// DestinationConfigParam must be either yes or no (defaults to yes).
-	DestinationConfigParam string `validate:"inclusion=yes|no" default:"yes"`
-}
-
-func (s *DestinationConfig) Validate(context.Context) error {
-	// Custom validation or parsing should be implemented here.
-	return nil
+	config   Config
+	client   influxdb2.Client
+	writeAPI api.WriteAPIBlocking
+	// Function to dynamically get measurement name for each data point.
+	measurementFunc measurementFn
 }
 
 func NewDestination() sdk.Destination {
-	// Create Destination and wrap it in the default middleware.
 	return sdk.DestinationWithMiddleware(&Destination{})
 }
 
@@ -52,23 +52,112 @@ func (d *Destination) Config() sdk.DestinationConfig {
 }
 
 func (d *Destination) Open(_ context.Context) error {
-	// Open is called after Configure to signal the plugin it can prepare to
-	// start writing records. If needed, the plugin should open connections in
-	// this function.
+	measurementFn, err := d.config.measurementFunction()
+	if err != nil {
+		return fmt.Errorf("invalid table name or table function: %w", err)
+	}
+	d.measurementFunc = measurementFn
+
+	d.client = influxdb2.NewClient(d.config.URL, d.config.Token)
+	d.writeAPI = d.client.WriteAPIBlocking(d.config.Org, d.config.Bucket)
+
 	return nil
 }
 
-func (d *Destination) Write(_ context.Context, _ []opencdc.Record) (int, error) {
-	// Write writes len(r) records from r to the destination right away without
-	// caching. It should return the number of records written from r
-	// (0 <= n <= len(r)) and any error encountered that caused the write to
-	// stop early. Write must return a non-nil error if it returns n < len(r).
-	return 0, nil
+func (d *Destination) Write(ctx context.Context, records []opencdc.Record) (int, error) {
+	points := []*write.Point{}
+
+	for _, record := range records {
+		measurement, err := d.measurementFunc(record)
+		if err != nil {
+			return 0, err
+		}
+		tags := extractTags(record.Metadata)
+
+		fields, err := structurizeData(record.Payload.After)
+		if err != nil {
+			return 0, fmt.Errorf("failed to convert payload to fields: %w", err)
+		}
+
+		timestamp, err := extractTimestamp(record.Metadata, fields)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get timestamp: %w", err)
+		}
+
+		point := influxdb2.NewPoint(measurement, tags, fields, timestamp)
+		points = append(points, point)
+	}
+
+	err := d.writeAPI.WritePoint(ctx, points...)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write records: %w", err)
+	}
+
+	return len(records), nil
 }
 
-func (d *Destination) Teardown(_ context.Context) error {
-	// Teardown signals to the plugin that all records were written and there
-	// will be no more calls to any other function. After Teardown returns, the
-	// plugin should be ready for a graceful shutdown.
+func (d *Destination) Teardown(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("Tearing down the InfluxDB Destination")
+
+	if d.client == nil {
+		return nil
+	}
+
+	if err := d.writeAPI.Flush(ctx); err != nil {
+		return fmt.Errorf("failed to flush remaining data: %w", err)
+	}
+	d.client.Close()
+
 	return nil
+}
+
+// structurizeData converts opencdc.Data to opencdc.StructuredData.
+func structurizeData(data opencdc.Data) (map[string]interface{}, error) {
+	if data == nil || len(data.Bytes()) == 0 {
+		return nil, errors.New("empty payload")
+	}
+
+	var structuredData map[string]interface{}
+	if err := json.Unmarshal(data.Bytes(), &structuredData); err != nil {
+		return nil, fmt.Errorf("unmarshal payload: %w", err)
+	}
+
+	return structuredData, nil
+}
+
+// extractTags gets tags (if any) from metadata. Valid tags start with 'tag.'.
+func extractTags(metadata opencdc.Metadata) map[string]string {
+	tags := make(map[string]string)
+	for k, v := range metadata {
+		if strings.HasPrefix(k, prefixTag) {
+			newKey := strings.TrimPrefix(k, prefixTag)
+			tags[newKey] = v
+		}
+	}
+	return tags
+}
+
+// extractTimestamp gets timestamp from metadata or payload.
+func extractTimestamp(metadata opencdc.Metadata, fields map[string]interface{}) (time.Time, error) {
+	if tsStr, ok := metadata["timestamp"]; ok {
+		parsedTime, err := time.Parse(time.RFC3339, tsStr)
+		if err == nil {
+			return parsedTime, nil
+		}
+	}
+
+	// Check in payload
+	if tsVal, ok := fields["timestamp"]; ok {
+		switch v := tsVal.(type) {
+		case string:
+			parsedTime, err := time.Parse(time.RFC3339, v)
+			if err == nil {
+				return parsedTime, nil
+			}
+		case float64: // If timestamp is stored as a Unix timestamp
+			return time.Unix(int64(v), 0), nil
+		}
+	}
+
+	return time.Time{}, errors.New("timestamp not found in metadata or payload")
 }
