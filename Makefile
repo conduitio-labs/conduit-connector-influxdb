@@ -9,6 +9,7 @@ test:
 	go test $(GOTEST_FLAGS) -race ./...
 
 .PHONY: test-integration
+test-integration: export RUN_INTEGRATION_TESTS=true
 test-integration:
 	# run required docker containers, execute integration tests, stop containers after tests
 	docker compose -f test/docker-compose.yml up -d
@@ -33,4 +34,4 @@ fmt:
 
 .PHONY: lint
 lint:
-	golangci-lint run
+	golangci-lint run -v
