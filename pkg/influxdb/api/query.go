@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package api
 
-// Config contains shared config parameters, common to the source and
-// destination.
-type Config struct {
-	// Token is used to authenticate API access.
-	Token string `json:"token" validate:"required"`
-	// Url is the remote influxdb host for api calls.
-	URL string `json:"url" validate:"required"`
-	// Org is an organization name or ID.
-	Org string `json:"org" validate:"required"`
+import (
+	"time"
+)
+
+type QueryRequest struct {
+	Organization string
+	Bucket       string
+	Measurement  string
+	After        time.Time
 }
