@@ -67,15 +67,9 @@ func (s *Source) Open(ctx context.Context, position opencdc.Position) error {
 
 	for m, keyField := range s.config.Measurements {
 		s.wg.Add(1)
-		var init bool
-		lastTS, ok := s.position.Measurements[m]
-		if !ok {
-			// read from scratch
-			init = true
-		}
-
-		// a new worker for a new index
-		NewWorker(ctx, s.client, s.config.Org, s.config.Bucket, m, lastTS, keyField, init, s.config.PollingPeriod, s.wg, s.ch, s.position, s.config.Retries)
+		lastTS := s.position.Measurements[m]
+		// a new worker for a new measurement
+		NewWorker(ctx, s.client, s.config.Org, s.config.Bucket, m, lastTS, keyField, s.config.PollingPeriod, s.wg, s.ch, s.position, s.config.Retries)
 	}
 
 	return nil
@@ -119,10 +113,16 @@ func (s *Source) Ack(ctx context.Context, position opencdc.Position) error {
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("Tearing down the InfluxDB Source")
 	// wait for goroutines to finish
-	s.wg.Wait()
-	// close the read channel for write
-	close(s.ch)
-	// reset read channel to nil, to avoid reading buffered records
-	s.ch = nil
+	if s != nil {
+		if s.wg != nil {
+			s.wg.Wait()
+		}
+		if s.ch != nil {
+			// close the read channel for write
+			close(s.ch)
+			// reset read channel to nil, to avoid reading buffered records
+			s.ch = nil
+		}
+	}
 	return nil
 }

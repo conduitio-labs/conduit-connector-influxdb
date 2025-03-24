@@ -21,7 +21,6 @@ import (
 
 	influxdbapi "github.com/conduitio-labs/conduit-connector-influxdb/pkg/influxdb/api"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
-	"github.com/influxdata/influxdb-client-go/v2/api"
 )
 
 var ErrNilClient = fmt.Errorf("nil client")
@@ -38,7 +37,7 @@ func NewClient(url, token string) (*V2Client, error) {
 	return &V2Client{client: c}, nil
 }
 
-func (c *V2Client) Query(ctx context.Context, request *influxdbapi.QueryRequest) (*api.QueryTableResult, error) {
+func (c *V2Client) Query(ctx context.Context, request *influxdbapi.QueryRequest) (*influxdbapi.QueryResponse, error) {
 	queryAPI := c.client.QueryAPI(request.Organization)
 	query := fmt.Sprintf(`from(bucket: "%s")
 	        |> range(start: %s)
@@ -54,5 +53,5 @@ func (c *V2Client) Query(ctx context.Context, request *influxdbapi.QueryRequest)
 	if err != nil {
 		return nil, fmt.Errorf("error quering influx: %w", err)
 	}
-	return results, nil
+	return &influxdbapi.QueryResponse{Result: results}, nil
 }

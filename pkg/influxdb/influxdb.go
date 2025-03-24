@@ -18,9 +18,8 @@ import (
 	"context"
 
 	influxdbapi "github.com/conduitio-labs/conduit-connector-influxdb/pkg/influxdb/api"
-	"github.com/influxdata/influxdb-client-go/v2/api"
 )
 
 type Client interface {
-	Query(ctx context.Context, request *influxdbapi.QueryRequest) (*api.QueryTableResult, error)
+	Query(ctx context.Context, request *influxdbapi.QueryRequest) (*influxdbapi.QueryResponse, error)
 }

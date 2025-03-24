@@ -33,7 +33,6 @@ type Worker struct {
 	measurement   string
 	lastTS        time.Time
 	keyField      string
-	init          bool
 	pollingPeriod time.Duration
 	wg            *sync.WaitGroup
 	ch            chan opencdc.Record
@@ -50,7 +49,6 @@ func NewWorker(
 	measurement string,
 	lastTS time.Time,
 	keyField string,
-	init bool,
 	pollingPeriod time.Duration,
 	wg *sync.WaitGroup,
 	ch chan opencdc.Record,
@@ -64,7 +62,6 @@ func NewWorker(
 		measurement:   measurement,
 		lastTS:        lastTS,
 		keyField:      keyField,
-		init:          init,
 		pollingPeriod: pollingPeriod,
 		wg:            wg,
 		ch:            ch,
@@ -77,6 +74,7 @@ func NewWorker(
 
 func (w *Worker) start(ctx context.Context) {
 	defer w.wg.Done()
+	retries := w.retries
 	for {
 		request := &api.QueryRequest{
 			Organization: w.organization,
@@ -85,8 +83,15 @@ func (w *Worker) start(ctx context.Context) {
 			After:        w.lastTS,
 		}
 
-		result, err := w.client.Query(ctx, request)
-		if err != nil || result == nil {
+		response, err := w.client.Query(ctx, request)
+		if err != nil || response == nil {
+			if err != nil && retries > 0 {
+				retries--
+			} else if err != nil && retries == 0 {
+				sdk.Logger(ctx).Err(err).Msg("retries exhausted, worker shutting down...")
+				return
+			}
+
 			select {
 			case <-ctx.Done():
 				sdk.Logger(ctx).Debug().Msg("worker shutting down...")
@@ -102,38 +107,46 @@ func (w *Worker) start(ctx context.Context) {
 			}
 		}
 
-		for result.Next() {
-			w.position.update(w.measurement, result.Record().Time())
-			sdkPosition, err := w.position.marshal()
-			if err != nil {
-				sdk.Logger(ctx).Err(err).Msg("error marshal position")
-				continue
-			}
+		if retries < w.retries {
+			retries = w.retries
+		}
 
-			metadata := opencdc.Metadata{
-				opencdc.MetadataCollection: result.Record().Measurement(),
-				"timestamp":                result.Record().Time().String(),
-			}
-			metadata.SetCreatedAt(result.Record().Time())
+		w.handleResult(ctx, response)
+	}
+}
 
-			key := make(opencdc.StructuredData)
-			key[w.keyField] = result.Record().ValueByKey(w.keyField)
+func (w *Worker) handleResult(ctx context.Context, response *api.QueryResponse) {
+	for response.Result.Next() {
+		w.position.update(w.measurement, response.Result.Record().Time())
+		sdkPosition, err := w.position.marshal()
+		if err != nil {
+			sdk.Logger(ctx).Err(err).Msg("error marshal position")
+			continue
+		}
 
-			payload, err := json.Marshal(result.Record().Values())
-			if err != nil {
-				sdk.Logger(ctx).Err(err).Msg("error marshal payload")
-				continue
-			}
+		metadata := opencdc.Metadata{
+			opencdc.MetadataCollection: response.Result.Record().Measurement(),
+			"timestamp":                response.Result.Record().Time().String(),
+		}
+		metadata.SetCreatedAt(response.Result.Record().Time())
 
-			record := sdk.Util.Source.NewRecordCreate(sdkPosition, metadata, key, opencdc.RawData(payload))
+		key := make(opencdc.StructuredData)
+		key[w.keyField] = response.Result.Record().ValueByKey(w.keyField)
 
-			select {
-			case w.ch <- record:
-				w.lastTS = result.Record().Time()
-			case <-ctx.Done():
-				sdk.Logger(ctx).Debug().Msg("worker shutting down...")
-				return
-			}
+		payload, err := json.Marshal(response.Result.Record().Values())
+		if err != nil {
+			sdk.Logger(ctx).Err(err).Msg("error marshal payload")
+			continue
+		}
+
+		record := sdk.Util.Source.NewRecordCreate(sdkPosition, metadata, key, opencdc.RawData(payload))
+
+		select {
+		case w.ch <- record:
+			w.lastTS = response.Result.Record().Time()
+		case <-ctx.Done():
+			sdk.Logger(ctx).Debug().Msg("worker shutting down...")
+			return
 		}
 	}
 }

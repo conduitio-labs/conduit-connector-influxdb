@@ -16,6 +16,8 @@ package api
 
 import (
 	"time"
+
+	api "github.com/influxdata/influxdb-client-go/v2/api"
 )
 
 type QueryRequest struct {
@@ -23,4 +25,8 @@ type QueryRequest struct {
 	Bucket       string
 	Measurement  string
 	After        time.Time
+}
+
+type QueryResponse struct {
+	Result *api.QueryTableResult
 }
