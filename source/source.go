@@ -123,7 +123,9 @@ func (s *Source) Teardown(ctx context.Context) error {
 			// reset read channel to nil, to avoid reading buffered records
 			s.ch = nil
 		}
-		s.client.Close()
+		if s.client != nil {
+			s.client.Close()
+		}
 	}
 	return nil
 }
