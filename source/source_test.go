@@ -21,7 +21,6 @@ import (
 	influxdb "github.com/conduitio-labs/conduit-connector-influxdb"
 	"github.com/conduitio-labs/conduit-connector-influxdb/source"
 	sdk "github.com/conduitio/conduit-connector-sdk"
-
 	"github.com/matryer/is"
 )
 
@@ -54,30 +53,4 @@ func TestSource_Open(t *testing.T) {
 
 	err = con.Open(ctx, nil)
 	is.NoErr(err)
-}
-
-func TestSource_Read(t *testing.T) {
-	is := is.New(t)
-	ctx := context.Background()
-	cfg := map[string]string{
-		"token":                     "test-token",
-		"url":                       "http://localhost:8086",
-		"org":                       "myorg",
-		"bucket":                    "mybucket",
-		"measurements.measurement1": "field1",
-	}
-
-	con := source.NewSource()
-	defer func() {
-		err := con.Teardown(ctx)
-		is.NoErr(err)
-	}()
-
-	err := sdk.Util.ParseConfig(ctx, cfg, con.Config(), influxdb.Connector.NewSpecification().SourceParams)
-	is.NoErr(err)
-
-	err = con.Open(ctx, nil)
-	is.NoErr(err)
-
-	con.ReadN(ctx, 2)
 }

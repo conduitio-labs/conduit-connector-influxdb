@@ -17,10 +17,14 @@ package influxdb
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	influxdbapi "github.com/conduitio-labs/conduit-connector-influxdb/pkg/influxdb/api"
+	"github.com/conduitio/conduit-commons/opencdc"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api/query"
 )
 
 var ErrNilClient = fmt.Errorf("nil client")
@@ -43,7 +47,7 @@ func (c *V2Client) Query(ctx context.Context, request *influxdbapi.QueryRequest)
 	        |> range(start: %s)
 	        |> filter(fn: (r) => r._measurement == "%s")
 			|> filter(fn: (r) => r._time > time(v: "%s"))
-			|> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")`,
+			|> group(columns: ["_field"])`,
 		request.Bucket,
 		request.After.Format(time.RFC3339Nano),
 		request.Measurement,
@@ -54,4 +58,43 @@ func (c *V2Client) Query(ctx context.Context, request *influxdbapi.QueryRequest)
 		return nil, fmt.Errorf("error quering influx: %w", err)
 	}
 	return &influxdbapi.QueryResponse{Result: results}, nil
+}
+
+func ParseRecord(record *query.FluxRecord) (opencdc.Metadata, opencdc.StructuredData) {
+	metadata := opencdc.Metadata{
+		opencdc.MetadataCollection: record.Measurement(),
+		"timestamp":                record.Time().Format(time.RFC3339Nano),
+	}
+	metadata.SetCreatedAt(record.Time())
+
+	payload := map[string]interface{}{record.Field(): record.Value()}
+
+	for field, value := range record.Values() {
+		if field == "_field" {
+			continue
+		}
+		if strings.Contains(field, "_") || field == "result" || field == "table" {
+			switch val := value.(type) {
+			case string:
+				metadata[field] = val
+			case int:
+				metadata[field] = strconv.Itoa(val)
+			case int64:
+				metadata[field] = fmt.Sprintf("%d", val)
+			case float64:
+				metadata[field] = fmt.Sprintf("%f", val)
+			case bool:
+				metadata[field] = fmt.Sprintf("%v", val)
+			case time.Time:
+				metadata[field] = val.String()
+			}
+		} else {
+			val, ok := value.(string)
+			if ok {
+				metadata[fmt.Sprintf("tag.%s", field)] = val
+			}
+		}
+	}
+
+	return metadata, payload
 }

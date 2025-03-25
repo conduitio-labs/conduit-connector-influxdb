@@ -16,7 +16,6 @@ package source
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -124,22 +123,13 @@ func (w *Worker) handleResult(ctx context.Context, response *api.QueryResponse) 
 			continue
 		}
 
-		metadata := opencdc.Metadata{
-			opencdc.MetadataCollection: response.Result.Record().Measurement(),
-			"timestamp":                response.Result.Record().Time().String(),
-		}
-		metadata.SetCreatedAt(response.Result.Record().Time())
-
-		key := make(opencdc.StructuredData)
-		key[w.keyField] = response.Result.Record().ValueByKey(w.keyField)
-
-		payload, err := json.Marshal(response.Result.Record().Values())
-		if err != nil {
-			sdk.Logger(ctx).Err(err).Msg("error marshal payload")
-			continue
+		key := opencdc.StructuredData{
+			"measurement": response.Result.Record().Measurement(),
+			w.keyField:    response.Result.Record().ValueByKey(w.keyField),
 		}
 
-		record := sdk.Util.Source.NewRecordCreate(sdkPosition, metadata, key, opencdc.RawData(payload))
+		metadata, payload := influxdb.ParseRecord(response.Result.Record())
+		record := sdk.Util.Source.NewRecordCreate(sdkPosition, metadata, key, payload)
 
 		select {
 		case w.ch <- record:
