@@ -116,6 +116,13 @@ specification:
             value: avro
   destination:
     parameters:
+      - name: bucket
+        description: Bucket is the database name to access.
+        type: string
+        default: ""
+        validations:
+          - type: required
+            value: ""
       - name: org
         description: Org is an organization name or ID.
         type: string

@@ -24,8 +24,6 @@ import (
 type Config struct {
 	sdk.DefaultSourceMiddleware
 	config.Config
-	// Bucket is the database name to access.
-	Bucket string `json:"bucket" validate:"required"`
 	// Measurement typically tracks one kind of metric over time similar to a table.
 	// Here we have measurement and its unique key field in map.
 	Measurements map[string]string `json:"measurements" validate:"required"`
