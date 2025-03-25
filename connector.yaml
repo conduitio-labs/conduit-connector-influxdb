@@ -8,7 +8,16 @@ specification:
   source:
     parameters:
       - name: bucket
-        description: Bucket specifies the InfluxDB bucket for reading or writing data.
+        description: Bucket is the database name to access.
+        type: string
+        default: ""
+        validations:
+          - type: required
+            value: ""
+      - name: measurements.*
+        description: |-
+          Measurement typically tracks one kind of metric over time similar to a table.
+          Here we have measurement and its unique key field in map.
         type: string
         default: ""
         validations:
@@ -16,13 +25,6 @@ specification:
             value: ""
       - name: org
         description: Org is an organization name or ID.
-        type: string
-        default: ""
-        validations:
-          - type: required
-            value: ""
-      - name: sourceConfigParam
-        description: SourceConfigParam must be provided by the user.
         type: string
         default: ""
         validations:
@@ -42,6 +44,16 @@ specification:
         validations:
           - type: required
             value: ""
+      - name: pollingPeriod
+        description: This period is used by workers to poll for new data at regular intervals.
+        type: duration
+        default: 5s
+        validations: []
+      - name: retries
+        description: The maximum number of retries of failed operations.
+        type: int
+        default: "0"
+        validations: []
       - name: sdk.batch.delay
         description: Maximum delay before an incomplete batch is read from the source.
         type: duration

@@ -16,31 +16,27 @@ package source
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
-	"github.com/conduitio-labs/conduit-connector-influxdb/config"
+	"github.com/conduitio-labs/conduit-connector-influxdb/pkg/influxdb"
 	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+)
+
+var (
+	ErrSourceClosed = fmt.Errorf("error source not opened for reading")
+	ErrReadingData  = fmt.Errorf("error reading data")
 )
 
 type Source struct {
 	sdk.UnimplementedSource
 
-	config           SourceConfig
-	lastPositionRead opencdc.Position //nolint:unused // this is just an example
-}
-
-//nolint:revive // TODO.
-type SourceConfig struct {
-	sdk.DefaultSourceMiddleware
-	// Config includes parameters that are the same in the source and destination.
-	config.Config
-	// SourceConfigParam must be provided by the user.
-	SourceConfigParam string `json:"sourceConfigParam" validate:"required"`
-}
-
-func (s *SourceConfig) Validate(context.Context) error {
-	// Custom validation or parsing should be implemented here.
-	return nil
+	config   Config
+	position *Position
+	client   influxdb.Client
+	ch       chan opencdc.Record
+	wg       *sync.WaitGroup
 }
 
 func NewSource() sdk.Source {
@@ -52,39 +48,81 @@ func (s *Source) Config() sdk.SourceConfig {
 	return &s.config
 }
 
-func (s *Source) Open(_ context.Context, _ opencdc.Position) error {
-	// Open is called after Configure to signal the plugin it can prepare to
-	// start producing records. If needed, the plugin should open connections in
-	// this function. The position parameter will contain the position of the
-	// last record that was successfully processed, Source should therefore
-	// start producing records after this position. The context passed to Open
-	// will be cancelled once the plugin receives a stop signal from Conduit.
+func (s *Source) Open(ctx context.Context, position opencdc.Position) error {
+	sdk.Logger(ctx).Info().Msg("Opening an InfluxDB source...")
+
+	var err error
+	s.position, err = ParseSDKPosition(position)
+	if err != nil {
+		return err
+	}
+
+	s.client, err = influxdb.NewClient(s.config.URL, s.config.Token)
+	if err != nil {
+		return fmt.Errorf("error creating new client: %w", err)
+	}
+
+	s.ch = make(chan opencdc.Record, 1)
+	s.wg = &sync.WaitGroup{}
+
+	for m, keyField := range s.config.Measurements {
+		s.wg.Add(1)
+		lastTS := s.position.Measurements[m]
+		// a new worker for a new measurement
+		NewWorker(ctx, s.client, s.config.Org, s.config.Bucket, m, lastTS, keyField, s.config.PollingPeriod, s.wg, s.ch, s.position, s.config.Retries)
+	}
+
 	return nil
 }
 
-func (s *Source) ReadN(context.Context, int) ([]opencdc.Record, error) {
-	// ReadN is the same as Read, but returns a batch of records. The connector
-	// is expected to return at most n records. If there are fewer records
-	// available, it should return all of them. If there are no records available
-	// it should block until there are records available or the context is
-	// cancelled. If the context is cancelled while ReadN is running, it should
-	// return the context error.
-	return []opencdc.Record{}, nil
+func (s *Source) ReadN(ctx context.Context, n int) ([]opencdc.Record, error) {
+	if s == nil || s.ch == nil {
+		return []opencdc.Record{}, ErrSourceClosed
+	}
+
+	records := make([]opencdc.Record, 0, n)
+	for len(records) < n {
+		select {
+		case <-ctx.Done():
+			return []opencdc.Record{}, ctx.Err()
+		case record, ok := <-s.ch:
+			if !ok {
+				if len(records) == 0 {
+					return []opencdc.Record{}, ErrReadingData
+				}
+				return records, nil
+			}
+			records = append(records, record)
+		}
+	}
+
+	return records, nil
 }
 
-func (s *Source) Ack(_ context.Context, _ opencdc.Position) error {
+func (s *Source) Ack(ctx context.Context, position opencdc.Position) error {
 	// Ack signals to the implementation that the record with the supplied
 	// position was successfully processed. This method might be called after
 	// the context of Read is already cancelled, since there might be
 	// outstanding acks that need to be delivered. When Teardown is called it is
 	// guaranteed there won't be any more calls to Ack.
 	// Ack can be called concurrently with Read.
+	sdk.Logger(ctx).Trace().Str("position", string(position)).Msg("got ack")
 	return nil
 }
 
-func (s *Source) Teardown(_ context.Context) error {
-	// Teardown signals to the plugin that there will be no more calls to any
-	// other function. After Teardown returns, the plugin should be ready for a
-	// graceful shutdown.
+func (s *Source) Teardown(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("Tearing down the InfluxDB Source")
+	// wait for goroutines to finish
+	if s != nil {
+		if s.wg != nil {
+			s.wg.Wait()
+		}
+		if s.ch != nil {
+			// close the read channel for write
+			close(s.ch)
+			// reset read channel to nil, to avoid reading buffered records
+			s.ch = nil
+		}
+	}
 	return nil
 }

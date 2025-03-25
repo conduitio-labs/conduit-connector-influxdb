@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/conduitio-labs/conduit-connector-influxdb/pkg/influxdb"
 	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
@@ -41,7 +42,7 @@ type Destination struct {
 	sdk.UnimplementedDestination
 
 	config   Config
-	client   influxdb2.Client
+	client   influxdb.Client
 	writeAPI api.WriteAPIBlocking
 	// Function to dynamically get measurement name for each data point.
 	measurementFunc measurementFn
@@ -62,8 +63,11 @@ func (d *Destination) Open(_ context.Context) error {
 	}
 	d.measurementFunc = measurementFn
 
-	d.client = influxdb2.NewClient(d.config.URL, d.config.Token)
-	d.writeAPI = d.client.WriteAPIBlocking(d.config.Org, d.config.Bucket)
+	d.client, err = influxdb.NewClient(d.config.URL, d.config.Token)
+	if err != nil {
+		return fmt.Errorf("error creating new client: %w", err)
+	}
+	d.writeAPI = d.client.WriteAPI(d.config.Org, d.config.Bucket)
 
 	return nil
 }
