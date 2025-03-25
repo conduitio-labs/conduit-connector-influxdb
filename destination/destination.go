@@ -147,14 +147,8 @@ func extractTags(metadata opencdc.Metadata) map[string]string {
 
 func extractTimestamp(metadata opencdc.Metadata) (time.Time, error) {
 	if tsStr, ok := metadata[metadataTimestamp]; ok {
-		// Try parsing as RFC3339Nano
-		parsedTime, err := time.Parse(time.RFC3339Nano, tsStr)
-		if err == nil {
-			return parsedTime, nil
-		}
-
 		// Try parsing as RFC3339
-		parsedTime, err = time.Parse(time.RFC3339, tsStr)
+		parsedTime, err := time.Parse(time.RFC3339, tsStr)
 		if err == nil {
 			return parsedTime, nil
 		}

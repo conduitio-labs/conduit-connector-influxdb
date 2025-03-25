@@ -99,6 +99,60 @@ func TestDestination_Write_success(t *testing.T) {
 	verifyRecordExists(t, cfg, "test_measurement", "sensor-01", "room-101", 50.5, 30.2)
 }
 
+func TestDestination_Write_staticMeasurement(t *testing.T) {
+	var (
+		is  = is.New(t)
+		cfg = prepareConfig(t)
+	)
+
+	cfg["measurement"] = "testMeasurement"
+
+	ctx := context.Background()
+	con := destination.NewDestination()
+	defer func() {
+		err := con.Teardown(ctx)
+		is.NoErr(err)
+	}()
+
+	err := sdk.Util.ParseConfig(ctx, cfg, con.Config(), influxdb.Connector.NewSpecification().DestinationParams)
+	is.NoErr(err)
+
+	err = con.Open(ctx)
+	is.NoErr(err)
+
+	// Write records to Influxdb
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	n, err := con.Write(ctx, []opencdc.Record{
+		{
+			Metadata: map[string]string{
+				opencdc.MetadataCollection: "test_measurement",
+				"timestamp":                timestamp,
+				"tag.device":               "sensor-01",
+				"tag.location":             "room-101",
+			},
+			Payload: opencdc.Change{
+				After: opencdc.RawData([]byte(`{"temperature": 24.5, "humidity": 65.2}`)),
+			},
+		},
+		{
+			Metadata: map[string]string{
+				opencdc.MetadataCollection: "test_measurement1",
+				"timestamp":                timestamp,
+				"tag.device":               "sensor-02",
+				"tag.location":             "room-102",
+			},
+			Payload: opencdc.Change{
+				After: opencdc.RawData([]byte(`{"temperature": 25.5, "humidity": 66.2}`)),
+			},
+		},
+	})
+	is.NoErr(err)
+	is.Equal(n, 2)
+
+	verifyRecordExists(t, cfg, "testMeasurement", "sensor-01", "room-101", 24.5, 65.2)
+	verifyRecordExists(t, cfg, "testMeasurement", "sensor-02", "room-102", 25.5, 66.2)
+}
+
 func TestDestination_Write_emptyPayload(t *testing.T) {
 	is := is.New(t)
 	cfg := prepareConfig(t)
@@ -133,7 +187,47 @@ func TestDestination_Write_emptyPayload(t *testing.T) {
 	is.Equal(n, 0)
 }
 
-func TestDestination_Write_missingTimestamp(t *testing.T) {
+func TestDestination_Write_unixTimestamp(t *testing.T) {
+	var (
+		is  = is.New(t)
+		cfg = prepareConfig(t)
+	)
+
+	ctx := context.Background()
+	con := destination.NewDestination()
+	defer func() {
+		err := con.Teardown(ctx)
+		is.NoErr(err)
+	}()
+
+	err := sdk.Util.ParseConfig(ctx, cfg, con.Config(), influxdb.Connector.NewSpecification().DestinationParams)
+	is.NoErr(err)
+
+	err = con.Open(ctx)
+	is.NoErr(err)
+
+	// Write records to Influxdb
+	timestamp := time.Now().Unix()
+	n, err := con.Write(ctx, []opencdc.Record{
+		{
+			Metadata: map[string]string{
+				opencdc.MetadataCollection: "test_measurement",
+				"timestamp":                fmt.Sprintf("%d", timestamp),
+				"tag.device":               "sensor-01",
+				"tag.location":             "room-101",
+			},
+			Payload: opencdc.Change{
+				After: opencdc.RawData([]byte(`{"temperature": 24.5, "humidity": 65.2}`)),
+			},
+		},
+	})
+	is.NoErr(err)
+	is.Equal(n, 1)
+
+	verifyRecordExists(t, cfg, "testMeasurement", "sensor-01", "room-101", 24.5, 65.2)
+}
+
+func TestDestination_Write_missingOrFailedToParseTimestamp(t *testing.T) {
 	is := is.New(t)
 	cfg := prepareConfig(t)
 
@@ -162,60 +256,27 @@ func TestDestination_Write_missingTimestamp(t *testing.T) {
 		},
 	})
 	is.True(err != nil)
-	is.Equal(err.Error(), "failed to get timestamp: timestamp not found in metadata or payload")
+	is.Equal(err.Error(), "failed to get timestamp: timestamp not found in metadata")
 	is.Equal(n, 0)
-}
 
-func TestDestination_Write_timestampInPayload(t *testing.T) {
-	is := is.New(t)
-	cfg := prepareConfig(t)
-
-	ctx := context.Background()
-	con := destination.NewDestination()
-	defer func() {
-		err := con.Teardown(ctx)
-		is.NoErr(err)
-	}()
-
-	err := sdk.Util.ParseConfig(ctx, cfg, con.Config(), influxdb.Connector.NewSpecification().DestinationParams)
-	is.NoErr(err)
-
-	err = con.Open(ctx)
-	is.NoErr(err)
-
-	currentTime := time.Now()
-	timestampRFC3339 := currentTime.Format(time.RFC3339)
-	timestampUnix := float64(currentTime.Unix())
-
-	records := []opencdc.Record{
+	// Write records to Influxdb with 'time.RFC1123' timestamp
+	timestamp := time.Now().Format(time.RFC1123)
+	n, err = con.Write(ctx, []opencdc.Record{
 		{
 			Metadata: map[string]string{
 				opencdc.MetadataCollection: "test_measurement",
+				"timestamp":                timestamp,
 				"tag.device":               "sensor-01",
 				"tag.location":             "room-101",
 			},
 			Payload: opencdc.Change{
-				After: opencdc.RawData([]byte(fmt.Sprintf(`{"temperature": 22.5, "humidity": 55.0, "timestamp": "%s"}`, timestampRFC3339))),
+				After: opencdc.RawData([]byte(`{"temperature": 24.5, "humidity": 65.2}`)),
 			},
 		},
-		{
-			Metadata: map[string]string{
-				opencdc.MetadataCollection: "test_measurement1",
-				"tag.device":               "sensor-01",
-				"tag.location":             "room-101",
-			},
-			Payload: opencdc.Change{
-				After: opencdc.RawData([]byte(fmt.Sprintf(`{"temperature": 23.5, "humidity": 50.5, "timestamp": %f}`, timestampUnix))),
-			},
-		},
-	}
-
-	n, err := con.Write(ctx, records)
-	is.NoErr(err)
-	is.Equal(n, 2)
-
-	verifyRecordExists(t, cfg, "test_measurement", "sensor-01", "room-101", 22.5, 55.0)
-	verifyRecordExists(t, cfg, "test_measurement1", "sensor-01", "room-101", 23.5, 50.5)
+	})
+	is.True(err != nil)
+	is.Equal(err.Error(), fmt.Sprintf(`failed to get timestamp: failed to parse timestamp: strconv.ParseFloat: parsing "%s": invalid syntax`, timestamp))
+	is.Equal(n, 0)
 }
 
 // verifyRecordExists queries InfluxDB and checks if the expected point exists.

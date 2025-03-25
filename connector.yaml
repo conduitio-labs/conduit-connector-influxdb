@@ -8,7 +8,7 @@ specification:
   source:
     parameters:
       - name: bucket
-        description: Bucket is the database name to access.
+        description: Bucket specifies the InfluxDB bucket for reading or writing data.
         type: string
         default: ""
         validations:
