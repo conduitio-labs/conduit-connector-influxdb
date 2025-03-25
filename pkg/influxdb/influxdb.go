@@ -22,4 +22,5 @@ import (
 
 type Client interface {
 	Query(ctx context.Context, request *influxdbapi.QueryRequest) (*influxdbapi.QueryResponse, error)
+	Close()
 }

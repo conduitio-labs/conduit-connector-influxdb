@@ -60,6 +60,10 @@ func (c *V2Client) Query(ctx context.Context, request *influxdbapi.QueryRequest)
 	return &influxdbapi.QueryResponse{Result: results}, nil
 }
 
+func (c *V2Client) Close() {
+	c.client.Close()
+}
+
 func ParseRecord(record *query.FluxRecord) (opencdc.Metadata, opencdc.StructuredData) {
 	metadata := opencdc.Metadata{
 		opencdc.MetadataCollection: record.Measurement(),
@@ -67,7 +71,7 @@ func ParseRecord(record *query.FluxRecord) (opencdc.Metadata, opencdc.Structured
 	}
 	metadata.SetCreatedAt(record.Time())
 
-	payload := map[string]interface{}{record.Field(): record.Value()}
+	payload := opencdc.StructuredData{record.Field(): record.Value()}
 
 	for field, value := range record.Values() {
 		if field == "_field" {
