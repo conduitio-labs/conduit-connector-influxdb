@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,7 +30,10 @@ import (
 	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
-const prefixTag = "tag."
+const (
+	prefixTag         = "tag."
+	metadataTimestamp = "timestamp"
+)
 
 type measurementFn func(opencdc.Record) (string, error)
 
@@ -79,7 +83,7 @@ func (d *Destination) Write(ctx context.Context, records []opencdc.Record) (int,
 			return 0, fmt.Errorf("failed to convert payload to fields: %w", err)
 		}
 
-		timestamp, err := extractTimestamp(record.Metadata, fields)
+		timestamp, err := extractTimestamp(record.Metadata)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get timestamp: %w", err)
 		}
@@ -137,27 +141,28 @@ func extractTags(metadata opencdc.Metadata) map[string]string {
 	return tags
 }
 
-// extractTimestamp gets timestamp from metadata or payload.
-func extractTimestamp(metadata opencdc.Metadata, fields map[string]interface{}) (time.Time, error) {
-	if tsStr, ok := metadata["timestamp"]; ok {
-		parsedTime, err := time.Parse(time.RFC3339, tsStr)
+func extractTimestamp(metadata opencdc.Metadata) (time.Time, error) {
+	if tsStr, ok := metadata[metadataTimestamp]; ok {
+		// Try parsing as RFC3339Nano
+		parsedTime, err := time.Parse(time.RFC3339Nano, tsStr)
 		if err == nil {
 			return parsedTime, nil
 		}
-	}
 
-	// Check in payload
-	if tsVal, ok := fields["timestamp"]; ok {
-		switch v := tsVal.(type) {
-		case string:
-			parsedTime, err := time.Parse(time.RFC3339, v)
-			if err == nil {
-				return parsedTime, nil
-			}
-		case float64: // If timestamp is stored as a Unix timestamp
-			return time.Unix(int64(v), 0), nil
+		// Try parsing as RFC3339
+		parsedTime, err = time.Parse(time.RFC3339, tsStr)
+		if err == nil {
+			return parsedTime, nil
 		}
+
+		// Try parsing as Unix timestamp
+		unixTime, err := strconv.ParseFloat(tsStr, 64)
+		if err == nil {
+			return time.Unix(int64(unixTime), 0), nil
+		}
+
+		return time.Time{}, fmt.Errorf("failed to parse timestamp: %w", err)
 	}
 
-	return time.Time{}, errors.New("timestamp not found in metadata or payload")
+	return time.Time{}, errors.New("timestamp not found in metadata")
 }
