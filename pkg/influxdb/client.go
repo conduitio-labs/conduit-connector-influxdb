@@ -76,7 +76,7 @@ func ParseRecord(record *query.FluxRecord) (opencdc.Metadata, opencdc.Structured
 	}
 	metadata.SetCreatedAt(record.Time())
 
-	payload := map[string]interface{}{record.Field(): record.Value()}
+	payload := opencdc.StructuredData{record.Field(): record.Value()}
 
 	for field, value := range record.Values() {
 		if field == "_field" {

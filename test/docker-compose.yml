@@ -12,13 +12,8 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=conduit
       - DOCKER_INFLUXDB_INIT_BUCKET=conduit_test
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-auth-token
-    volumes:
-      - influxdb_data:/var/lib/influxdb2
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-  influxdb_data:

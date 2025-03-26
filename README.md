@@ -210,14 +210,5 @@ The release is done in two steps:
 - Tag the connector, which will kick off a release. This can be done
   with [tag.sh](/scripts/tag.sh).
 
-## Known Issues & Limitations
-
-- Known issue A
-- Limitation A
-
-## Planned work
-
-- [ ] Item A
-- [ ] Item B
 
 ![scarf pixel](https://static.scarf.sh/a.png?x-pxid=)
