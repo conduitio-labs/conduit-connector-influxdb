@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package influxdb
 
-// Config contains shared config parameters, common to the source and
-// destination.
-type Config struct {
-	// Token is used to authenticate API access.
-	Token string `json:"token" validate:"required"`
-	// Url is the remote influxdb host for api calls.
-	URL string `json:"url" validate:"required"`
-	// Org is an organization name or ID.
-	Org string `json:"org" validate:"required"`
-	// Bucket is the database name to access.
-	Bucket string `json:"bucket" validate:"required"`
+import (
+	"context"
+
+	influxdbapi "github.com/conduitio-labs/conduit-connector-influxdb/pkg/influxdb/api"
+)
+
+type Client interface {
+	Query(ctx context.Context, request *influxdbapi.QueryRequest) (*influxdbapi.QueryResponse, error)
+	Close()
 }
