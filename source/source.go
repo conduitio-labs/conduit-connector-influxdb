@@ -77,18 +77,18 @@ func (s *Source) Open(ctx context.Context, position opencdc.Position) error {
 
 func (s *Source) ReadN(ctx context.Context, n int) ([]opencdc.Record, error) {
 	if s == nil || s.ch == nil {
-		return []opencdc.Record{}, ErrSourceClosed
+		return nil, ErrSourceClosed
 	}
 
 	records := make([]opencdc.Record, 0, n)
 	for len(records) < n {
 		select {
 		case <-ctx.Done():
-			return []opencdc.Record{}, ctx.Err()
+			return nil, ctx.Err()
 		case record, ok := <-s.ch:
 			if !ok {
 				if len(records) == 0 {
-					return []opencdc.Record{}, ErrReadingData
+					return nil, ErrReadingData
 				}
 				return records, nil
 			}
@@ -112,9 +112,9 @@ func (s *Source) Ack(ctx context.Context, position opencdc.Position) error {
 
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("Tearing down the InfluxDB Source")
-	// wait for goroutines to finish
 	if s != nil {
 		if s.wg != nil {
+			// wait for goroutines to finish
 			s.wg.Wait()
 		}
 		if s.ch != nil {
