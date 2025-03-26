@@ -83,14 +83,7 @@ func (w *Worker) start(ctx context.Context) {
 		}
 
 		response, err := w.client.Query(ctx, request)
-		if err != nil || response == nil {
-			if err != nil && retries > 0 {
-				retries--
-			} else if err != nil && retries == 0 {
-				sdk.Logger(ctx).Err(err).Msg("retries exhausted, worker shutting down...")
-				return
-			}
-
+		if err != nil {
 			select {
 			case <-ctx.Done():
 				sdk.Logger(ctx).Debug().Msg("worker shutting down...")
@@ -98,10 +91,15 @@ func (w *Worker) start(ctx context.Context) {
 
 			case <-time.After(w.pollingPeriod):
 				if err != nil {
+					if retries == 0 {
+						sdk.Logger(ctx).Err(err).Msg("retries exhausted, worker shutting down...")
+						return
+					}
 					sdk.Logger(ctx).Err(err).Msg("error api call, retrying...")
 				} else {
 					sdk.Logger(ctx).Debug().Msg("no records found, continuing polling...")
 				}
+				retries--
 				continue
 			}
 		}
