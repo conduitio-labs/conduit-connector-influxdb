@@ -16,6 +16,7 @@ package source
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -74,46 +75,52 @@ func NewWorker(
 func (w *Worker) start(ctx context.Context) {
 	defer w.wg.Done()
 	retries := w.retries
-	for {
-		request := &api.QueryRequest{
-			Organization: w.organization,
-			Bucket:       w.bucket,
-			Measurement:  w.measurement,
-			After:        w.lastTS,
-		}
 
-		response, err := w.client.Query(ctx, request)
+	for {
+		err := w.processRequest(ctx)
 		if err != nil {
 			select {
 			case <-ctx.Done():
 				sdk.Logger(ctx).Debug().Msg("worker shutting down...")
 				return
-
 			case <-time.After(w.pollingPeriod):
-				if err != nil {
-					if retries == 0 {
-						sdk.Logger(ctx).Err(err).Msg("retries exhausted, worker shutting down...")
-						return
-					}
-					sdk.Logger(ctx).Err(err).Msg("error api call, retrying...")
-				} else {
-					sdk.Logger(ctx).Debug().Msg("no records found, continuing polling...")
+				if retries == 0 {
+					sdk.Logger(ctx).Err(err).Msg("retries exhausted, worker shutting down...")
+					return
 				}
 				retries--
-				continue
 			}
-		}
-
-		if retries < w.retries {
+		} else {
 			retries = w.retries
 		}
-
-		w.handleResult(ctx, response)
 	}
 }
 
-func (w *Worker) handleResult(ctx context.Context, response *api.QueryResponse) {
+func (w *Worker) processRequest(ctx context.Context) error {
+	request := &api.QueryRequest{
+		Organization: w.organization,
+		Bucket:       w.bucket,
+		Measurement:  w.measurement,
+		After:        w.lastTS,
+	}
+
+	response, err := w.client.Query(ctx, request)
+	if err != nil {
+		return fmt.Errorf("error client query: %w", err)
+	}
+
+	processed, err := w.handleResult(ctx, response)
+	if err != nil || !processed {
+		return err
+	}
+
+	return nil
+}
+
+func (w *Worker) handleResult(ctx context.Context, response *api.QueryResponse) (bool, error) {
+	var processed bool
 	for response.Result.Next() {
+		processed = true
 		w.position.update(w.measurement, response.Result.Record().Time())
 		sdkPosition, err := w.position.marshal()
 		if err != nil {
@@ -129,12 +136,9 @@ func (w *Worker) handleResult(ctx context.Context, response *api.QueryResponse) 
 		metadata, payload := influxdb.ParseRecord(response.Result.Record())
 		record := sdk.Util.Source.NewRecordCreate(sdkPosition, metadata, key, payload)
 
-		select {
-		case w.ch <- record:
-			w.lastTS = response.Result.Record().Time()
-		case <-ctx.Done():
-			sdk.Logger(ctx).Debug().Msg("worker shutting down...")
-			return
-		}
+		w.ch <- record
+		w.lastTS = response.Result.Record().Time()
 	}
+
+	return processed, fmt.Errorf("error handling response results: %w", response.Result.Err())
 }
