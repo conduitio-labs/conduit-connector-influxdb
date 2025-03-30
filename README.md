@@ -22,7 +22,7 @@ pipelines:
       - id: example
         plugin: "influxdb"
         settings:
-          # Bucket is the database name to access.
+          # Bucket specifies the InfluxDB bucket for reading or writing data.
           # Type: string
           # Required: yes
           bucket: ""
@@ -115,7 +115,7 @@ pipelines:
       - id: example
         plugin: "influxdb"
         settings:
-          # Bucket is the database name to access.
+          # Bucket specifies the InfluxDB bucket for reading or writing data.
           # Type: string
           # Required: yes
           bucket: ""
@@ -131,10 +131,10 @@ pipelines:
           # Type: string
           # Required: yes
           url: ""
-          # DestinationConfigParam must be either yes or no (defaults to yes).
+          # Measurement is the measurement name to insert data into.
           # Type: string
           # Required: no
-          destinationConfigParam: "yes"
+          measurement: "{{ index .Metadata "opencdc.collection" }}"
           # Maximum delay before an incomplete batch is written to the
           # destination.
           # Type: duration
