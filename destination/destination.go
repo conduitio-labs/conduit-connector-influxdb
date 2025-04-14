@@ -17,7 +17,6 @@ package destination
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -34,6 +33,11 @@ import (
 const (
 	prefixTag         = "tag."
 	metadataTimestamp = "timestamp"
+)
+
+var (
+	ErrEmptyPayload      = fmt.Errorf("empty payload")
+	ErrTimestampNotFound = fmt.Errorf("timestamp not found in metadata")
 )
 
 type measurementFn func(opencdc.Record) (string, error)
@@ -120,14 +124,14 @@ func (d *Destination) Teardown(ctx context.Context) error {
 }
 
 // structurizeData converts opencdc.Data to opencdc.StructuredData.
-func structurizeData(data opencdc.Data) (map[string]interface{}, error) {
+func structurizeData(data opencdc.Data) (opencdc.StructuredData, error) {
 	if data == nil || len(data.Bytes()) == 0 {
-		return nil, errors.New("empty payload")
+		return nil, ErrEmptyPayload
 	}
 
-	var structuredData map[string]interface{}
+	structuredData := make(opencdc.StructuredData)
 	if err := json.Unmarshal(data.Bytes(), &structuredData); err != nil {
-		return nil, fmt.Errorf("unmarshal payload: %w", err)
+		return nil, fmt.Errorf("unmarshal data into structured data: %w", err)
 	}
 
 	return structuredData, nil
@@ -162,5 +166,5 @@ func extractTimestamp(metadata opencdc.Metadata) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("failed to parse timestamp: %w", err)
 	}
 
-	return time.Time{}, errors.New("timestamp not found in metadata")
+	return time.Time{}, ErrTimestampNotFound
 }
