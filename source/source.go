@@ -81,18 +81,25 @@ func (s *Source) ReadN(ctx context.Context, n int) ([]opencdc.Record, error) {
 	}
 
 	records := make([]opencdc.Record, 0, n)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r, ok := <-s.ch:
+		if !ok {
+			return nil, ErrReadingData
+		}
+		records = append(records, r)
+	}
+
 	for len(records) < n {
 		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case record, ok := <-s.ch:
+		case r, ok := <-s.ch:
 			if !ok {
-				if len(records) == 0 {
-					return nil, ErrReadingData
-				}
-				return records, nil
+				break
 			}
-			records = append(records, record)
+			records = append(records, r)
+		default:
+			return records, nil
 		}
 	}
 
