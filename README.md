@@ -22,14 +22,19 @@ pipelines:
       - id: example
         plugin: "influxdb"
         settings:
+          # Bucket specifies the InfluxDB bucket for reading or writing data.
+          # Type: string
+          # Required: yes
+          bucket: ""
+          # Measurement typically tracks one kind of metric over time similar to
+          # a table. Here we have measurement and its unique key field in map.
+          # Type: string
+          # Required: yes
+          measurements.*: ""
           # Org is an organization name or ID.
           # Type: string
           # Required: yes
           org: ""
-          # SourceConfigParam must be provided by the user.
-          # Type: string
-          # Required: yes
-          sourceConfigParam: ""
           # Token is used to authenticate API access.
           # Type: string
           # Required: yes
@@ -38,6 +43,15 @@ pipelines:
           # Type: string
           # Required: yes
           url: ""
+          # This period is used by workers to poll for new data at regular
+          # intervals.
+          # Type: duration
+          # Required: no
+          pollingPeriod: "5s"
+          # The maximum number of retries of failed operations.
+          # Type: int
+          # Required: no
+          retries: "0"
           # Maximum delay before an incomplete batch is read from the source.
           # Type: duration
           # Required: no
@@ -101,6 +115,10 @@ pipelines:
       - id: example
         plugin: "influxdb"
         settings:
+          # Bucket specifies the InfluxDB bucket for reading or writing data.
+          # Type: string
+          # Required: yes
+          bucket: ""
           # Org is an organization name or ID.
           # Type: string
           # Required: yes
@@ -113,10 +131,10 @@ pipelines:
           # Type: string
           # Required: yes
           url: ""
-          # DestinationConfigParam must be either yes or no (defaults to yes).
+          # Measurement is the measurement name to insert data into.
           # Type: string
           # Required: no
-          destinationConfigParam: "yes"
+          measurement: "{{ index .Metadata "opencdc.collection" }}"
           # Maximum delay before an incomplete batch is written to the
           # destination.
           # Type: duration
@@ -192,14 +210,5 @@ The release is done in two steps:
 - Tag the connector, which will kick off a release. This can be done
   with [tag.sh](/scripts/tag.sh).
 
-## Known Issues & Limitations
-
-- Known issue A
-- Limitation A
-
-## Planned work
-
-- [ ] Item A
-- [ ] Item B
 
 ![scarf pixel](https://static.scarf.sh/a.png?x-pxid=)
