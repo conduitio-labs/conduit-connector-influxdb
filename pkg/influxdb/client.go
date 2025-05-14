@@ -24,6 +24,7 @@ import (
 	influxdbapi "github.com/conduitio-labs/conduit-connector-influxdb/pkg/influxdb/api"
 	"github.com/conduitio/conduit-commons/opencdc"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api"
 	"github.com/influxdata/influxdb-client-go/v2/api/query"
 )
 
@@ -58,6 +59,10 @@ func (c *V2Client) Query(ctx context.Context, request *influxdbapi.QueryRequest)
 		return nil, fmt.Errorf("error quering influx: %w", err)
 	}
 	return &influxdbapi.QueryResponse{Result: results}, nil
+}
+
+func (c *V2Client) WriteAPI(org, bucket string) api.WriteAPIBlocking {
+	return c.client.WriteAPIBlocking(org, bucket)
 }
 
 func (c *V2Client) Close() {

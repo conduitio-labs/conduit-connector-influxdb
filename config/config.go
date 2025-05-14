@@ -23,6 +23,6 @@ type Config struct {
 	URL string `json:"url" validate:"required"`
 	// Org is an organization name or ID.
 	Org string `json:"org" validate:"required"`
-	// Bucket is the database name to access.
+	// Bucket specifies the InfluxDB bucket for reading or writing data.
 	Bucket string `json:"bucket" validate:"required"`
 }

@@ -6,14 +6,10 @@ build:
 
 .PHONY: test
 test:
-	go test $(GOTEST_FLAGS) -race ./...
-
-.PHONY: test-integration
-test-integration:
 	# run required docker containers, execute integration tests, stop containers after tests
-	docker compose -f test/docker-compose.yml up -d
-	go test $(GOTEST_FLAGS) -v -race ./...; ret=$$?; \
-		docker compose -f test/docker-compose.yml down; \
+	docker compose -f test/docker-compose.yml up --force-recreate --quiet-pull -d --wait
+	go test $(GOTEST_FLAGS) -race ./...; ret=$$?; \
+		docker compose -f test/docker-compose.yml down --volumes; \
 		exit $$ret
 
 .PHONY: generate
@@ -33,4 +29,4 @@ fmt:
 
 .PHONY: lint
 lint:
-	golangci-lint run
+	golangci-lint run -v
