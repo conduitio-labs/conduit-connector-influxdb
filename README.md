@@ -22,14 +22,19 @@ pipelines:
       - id: example
         plugin: "influxdb"
         settings:
+          # Bucket is the bucket name to access.
+          # Type: string
+          # Required: yes
+          bucket: ""
+          # Measurement typically tracks one kind of metric over time similar to
+          # a table. Here we have measurement and its unique key field in map.
+          # Type: string
+          # Required: yes
+          measurements.*: ""
           # Org is an organization name or ID.
           # Type: string
           # Required: yes
           org: ""
-          # SourceConfigParam must be provided by the user.
-          # Type: string
-          # Required: yes
-          sourceConfigParam: ""
           # Token is used to authenticate API access.
           # Type: string
           # Required: yes
@@ -38,6 +43,15 @@ pipelines:
           # Type: string
           # Required: yes
           url: ""
+          # This period is used by workers to poll for new data at regular
+          # intervals.
+          # Type: duration
+          # Required: no
+          pollingPeriod: "5s"
+          # The maximum number of retries of failed operations.
+          # Type: int
+          # Required: no
+          retries: "0"
           # Maximum delay before an incomplete batch is read from the source.
           # Type: duration
           # Required: no
@@ -101,6 +115,10 @@ pipelines:
       - id: example
         plugin: "influxdb"
         settings:
+          # Bucket is the bucket name to access.
+          # Type: string
+          # Required: yes
+          bucket: ""
           # Org is an organization name or ID.
           # Type: string
           # Required: yes
