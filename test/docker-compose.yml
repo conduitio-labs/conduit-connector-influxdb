@@ -2,7 +2,7 @@
 # More information at https://docs.docker.com/compose/
 services:
   influxdb:
-    image: influxdb:3.0
+    image: influxdb:3.0-core
     ports:
       - "8086:8086"
     environment:
