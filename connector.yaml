@@ -8,7 +8,7 @@ specification:
   source:
     parameters:
       - name: bucket
-        description: Bucket is the bucket name to access.
+        description: Bucket specifies the InfluxDB bucket for reading or writing data.
         type: string
         default: ""
         validations:
@@ -117,7 +117,7 @@ specification:
   destination:
     parameters:
       - name: bucket
-        description: Bucket is the bucket name to access.
+        description: Bucket specifies the InfluxDB bucket for reading or writing data.
         type: string
         default: ""
         validations:
@@ -144,13 +144,11 @@ specification:
         validations:
           - type: required
             value: ""
-      - name: destinationConfigParam
-        description: DestinationConfigParam must be either yes or no (defaults to yes).
+      - name: measurement
+        description: Measurement is the measurement name to insert data into.
         type: string
-        default: "yes"
-        validations:
-          - type: inclusion
-            value: yes,no
+        default: '{{ index .Metadata "opencdc.collection" }}'
+        validations: []
       - name: sdk.batch.delay
         description: Maximum delay before an incomplete batch is written to the destination.
         type: duration
