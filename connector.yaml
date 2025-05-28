@@ -3,7 +3,7 @@ specification:
   name: influxdb
   summary: Conduit Connector for InfluxDB
   description: Source and destination connector for InfluxDB.
-  version: v0.0.1
+  version: v0.1.0
   author: conduit-core
   source:
     parameters:
