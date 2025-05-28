@@ -1,21 +1,30 @@
 version: "1.0"
 specification:
   name: influxdb
-  summary: Source and destination connector for InfluxDB.
+  summary: Conduit Connector for InfluxDB
   description: Source and destination connector for InfluxDB.
-  version: v0.0.1
+  version: v0.1.0
   author: conduit-core
   source:
     parameters:
-      - name: org
-        description: Org is an organization name or ID.
+      - name: bucket
+        description: Bucket specifies the InfluxDB bucket for reading or writing data.
         type: string
         default: ""
         validations:
           - type: required
             value: ""
-      - name: sourceConfigParam
-        description: SourceConfigParam must be provided by the user.
+      - name: measurements.*
+        description: |-
+          Measurement typically tracks one kind of metric over time similar to a table.
+          Here we have measurement and its unique key field in map.
+        type: string
+        default: ""
+        validations:
+          - type: required
+            value: ""
+      - name: org
+        description: Org is an organization name or ID.
         type: string
         default: ""
         validations:
@@ -35,6 +44,16 @@ specification:
         validations:
           - type: required
             value: ""
+      - name: pollingPeriod
+        description: This period is used by workers to poll for new data at regular intervals.
+        type: duration
+        default: 5s
+        validations: []
+      - name: retries
+        description: The maximum number of retries of failed operations.
+        type: int
+        default: "0"
+        validations: []
       - name: sdk.batch.delay
         description: Maximum delay before an incomplete batch is read from the source.
         type: duration
@@ -97,6 +116,13 @@ specification:
             value: avro
   destination:
     parameters:
+      - name: bucket
+        description: Bucket specifies the InfluxDB bucket for reading or writing data.
+        type: string
+        default: ""
+        validations:
+          - type: required
+            value: ""
       - name: org
         description: Org is an organization name or ID.
         type: string
@@ -118,13 +144,11 @@ specification:
         validations:
           - type: required
             value: ""
-      - name: destinationConfigParam
-        description: DestinationConfigParam must be either yes or no (defaults to yes).
+      - name: measurement
+        description: Measurement is the measurement name to insert data into.
         type: string
-        default: "yes"
-        validations:
-          - type: inclusion
-            value: yes,no
+        default: '{{ index .Metadata "opencdc.collection" }}'
+        validations: []
       - name: sdk.batch.delay
         description: Maximum delay before an incomplete batch is written to the destination.
         type: duration
